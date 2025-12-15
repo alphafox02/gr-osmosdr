@@ -194,14 +194,16 @@ class app_top_block(gr.top_block, Qt.QMainWindow):
             rates = self.src.get_sample_rates()
             print('Supported sample rates %.10g-%.10g step %.10g.' % (rates.start(), rates.stop(), rates.step()))
 
-        self.bandwidth_ok = True
+        self.bandwidth_ok = False
         try:
             rg = self.src.get_bandwidth_range()
-            range_start = rg.start()
-            if self._verbose:
-                print('Supported bandwidth rates %.10g-%.10g step %.10g.' % (rg.start(), rg.stop(), rg.step()))
-        except RuntimeError as ex:
-            self.bandwidth_ok = False
+            if rg.start() > 0 and rg.stop() > rg.start():
+                self.bandwidth_ok = True
+                if self._verbose:
+                    print('Supported bandwidth rates %.10g-%.10g step %.10g.' %
+                          (rg.start(), rg.stop(), rg.step()))
+        except RuntimeError:
+            pass
 
         if options.center_freq is None:
             freq = self.src.get_center_freq()
@@ -434,7 +436,18 @@ class app_top_block(gr.top_block, Qt.QMainWindow):
             self._add_section("Bandwidth", self.top_layout)
 
             r = self.src.get_bandwidth_range()
-            self._bwr = Range(r.start(), r.stop(), r.step() or (r.stop() - r.start())/100, self.src.get_bandwidth(), 100)
+            bw_start = r.start()
+            bw_stop = r.stop()
+            bw_step = r.step()
+            bw_cur = self.src.get_bandwidth()
+
+            if bw_step <= 0:
+                bw_step = (bw_stop - bw_start) / 100.0
+
+            if bw_cur <= 0:
+                bw_cur = self.src.get_sample_rate()
+
+            self._bwr = Range(bw_start, bw_stop, bw_step, bw_cur, 100)
             self._bww = RangeWidget(self._bwr, self.set_bandwidth, 'Bandwidth (Hz):', eng_widget, float)
             self._shrink(self._bww)
             self.top_layout.addWidget(self._bww)
